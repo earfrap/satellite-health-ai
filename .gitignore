@@ -54,3 +54,8 @@ outputs/models/*
 # --- Logs ---
 *.log
 logs/
+
+# --- Python packaging ---
+*.egg-info/
+dist/
+build/

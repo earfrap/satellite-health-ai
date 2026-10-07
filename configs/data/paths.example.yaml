@@ -1,0 +1,4 @@
+# Copy this file to paths.local.yaml and configure the local data location.
+# paths.local.yaml is intentionally excluded from Git.
+
+data_root: "/path/to/satellite-health-ai-data"
