@@ -1,0 +1,56 @@
+# ============================================
+# Satellite Health AI
+# Git ignore rules
+# ============================================
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.so
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+.env
+
+# --- Jupyter ---
+.ipynb_checkpoints/
+
+# --- macOS ---
+.DS_Store
+
+# --- IDEs ---
+.vscode/
+.idea/
+
+# --- Raw and processed data ---
+data/raw/*
+data/interim/*
+data/processed/*
+
+# Keep directory structure
+!data/raw/.gitkeep
+!data/interim/.gitkeep
+!data/processed/.gitkeep
+
+# --- Model artifacts ---
+outputs/models/*
+!outputs/models/.gitkeep
+
+# --- Temporary experiment artifacts ---
+*.pt
+*.pth
+*.ckpt
+
+# --- Local configuration / secrets ---
+.env
+*.local.yaml
+*.local.yml
+
+# --- Logs ---
+*.log
+logs/
