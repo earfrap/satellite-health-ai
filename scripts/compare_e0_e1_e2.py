@@ -103,7 +103,6 @@ def main():
 
     if reference_events.index.has_duplicates:
         raise ValueError("Duplicate ESA event IDs in E0.")
-    
     event_comparison = reference_events[
         ["Category", "event_start", "event_end"]
     ].copy()
