@@ -9,6 +9,8 @@ from satellite_health.models.robust_threshold import RobustThresholdDetector
 from satellite_health.evaluation.event_metrics import (
     extract_alert_episodes,
     classify_alert_episodes,
+    compute_event_detection,
+    compute_detection_latency,
 )
 
 
@@ -103,10 +105,31 @@ def main():
         & (windows["window_start"] < test_end)
     ].copy()
 
+
+
+    # Apply the calibrated threshold to validation and test windows.
+    # Validation provides context for episodes crossing the test boundary.
+    evaluation_context = windows[
+        (windows["window_start"] >= train_end)
+        & (windows["window_start"] < test_end)
+    ].copy()
+
+    evaluation_context["alert"] = (
+        evaluation_context["e0_score"] > threshold
+    )
+
+    # Preserve the original test-period alert calculation.
     test["alert"] = test["e0_score"] > threshold
 
-    # Group consecutive alert windows into operational episodes.
-    episodes = extract_alert_episodes(test)
+    # Build episodes with preceding temporal context.
+    all_episodes = extract_alert_episodes(evaluation_context)
+
+    # Retain episodes overlapping the test period.
+    episodes = all_episodes[
+        (all_episodes["episode_start"] < test_end)
+        & (all_episodes["episode_end"] > test_start)
+    ].copy()
+
 
     # Select original ESA events overlapping the test period.
     test_events = events[
@@ -116,6 +139,40 @@ def main():
 
     # Associate alert episodes with ESA events.
     classified = classify_alert_episodes(episodes, test_events)
+
+
+
+    # Event-level detection using complete alert episodes.
+    event_detection = compute_event_detection(
+        test_events,
+        episodes,
+    )
+
+    # Operational latency using alert-window closure times.
+    event_latency = compute_detection_latency(
+        test_events,
+        evaluation_context,
+    )
+
+    # Verify that both evaluations refer to the same events.
+    if not event_detection["ID"].equals(event_latency["ID"]):
+        raise ValueError("Event order mismatch between evaluation functions.")
+
+    # Combine event-level metrics.
+    event_metrics = event_detection.copy()
+
+    event_metrics["first_alert_time"] = (
+        event_latency["first_alert_time"]
+    )
+
+    event_metrics["latency_minutes"] = (
+        event_latency["latency_minutes"]
+    )
+
+    if not event_detection["detected"].equals(event_latency["detected"]):
+        raise ValueError("Inconsistent event detection results.")
+
+
 
     test_days = (
         test["window_end"].max() - test["window_start"].min()
@@ -154,6 +211,12 @@ def main():
     # Test alert episodes with ESA associations.
     classified.to_csv(
         output_dir / "test_episodes_2000.csv",
+        index=False,
+    )
+
+   # Event-level detection and operational latency.
+    event_metrics.to_csv(
+        output_dir / "test_event_metrics_2000.csv",
         index=False,
     )
 
