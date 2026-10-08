@@ -106,3 +106,21 @@ class PCAAnomalyDetector:
             name="spe_score",
         )
 
+    def channel_contributions(self, X: pd.DataFrame) -> pd.DataFrame:
+        """Return per-channel squared PCA reconstruction residuals."""
+        if self.pca_ is None:
+            raise RuntimeError("Detector must be fitted first.")
+
+        Z = self.scaler_.transform(X)
+
+        projected = self.pca_.transform(Z)
+        reconstructed = self.pca_.inverse_transform(projected)
+
+        residual = Z.to_numpy() - reconstructed
+        contributions = residual ** 2
+
+        return pd.DataFrame(
+            contributions,
+            index=X.index,
+            columns=X.columns,
+        )

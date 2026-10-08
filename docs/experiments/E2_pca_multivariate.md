@@ -98,3 +98,72 @@ E2 demonstrates that a linear multivariate detector can identify deviations from
 The improvement observed for event `id_73` is accompanied by a higher unassociated-alert burden and requires further investigation before drawing broader conclusions.
 
 The next analysis will examine PCA reconstruction residuals and channel-level contributions around `id_73` to assess whether its early detection is linked to a disruption of multivariate relationships.
+
+
+
+
+
+
+## Case study: Explainability of ESA event id_73
+
+### Objective
+
+Investigate why the E2 PCA-based multivariate detector identifies ESA event `id_73` earlier than the E0 robust univariate threshold baseline.
+
+The analysis uses the 2000 development slice of ESA Mission 1, Group 8, and reproduces the original E2 training configuration and validation-calibrated thresholds.
+
+### Temporal detection behavior
+
+ESA event `id_73` begins on 2000-12-22 at 16:58:58.314 UTC.
+
+The first E2 alert occurs in the 17:00–17:30 UTC evaluation window, corresponding to a window-level detection latency of approximately 31.03 minutes.
+
+E0 first alerts in the 20:00–20:30 UTC window, corresponding to approximately 211.03 minutes. E1 detects the event later, with a latency of approximately 751.03 minutes.
+
+During the five hours preceding the event, E2 remains below its calibrated alert threshold. From the 17:00 window onward, E2 exceeds its threshold in every examined window through 22:00.
+
+### Channel-level explanation
+
+At 17:16:58.314 UTC, the maximum PCA squared prediction error (SPE) within the first E2 alert window is 3.529074, above the validation-calibrated threshold of approximately 2.331042.
+
+The channel contributions to this SPE are:
+
+| Channel | SPE contribution | Percentage |
+|---|---:|---:|
+| channel_46 | 0.938 | 26.59% |
+| channel_44 | 0.609 | 17.25% |
+| channel_42 | 0.576 | 16.32% |
+| channel_45 | 0.568 | 16.10% |
+| channel_41 | 0.505 | 14.30% |
+| channel_43 | 0.333 | 9.44% |
+
+The contributions sum to the total SPE. Channel 46 has the largest contribution, but the reconstruction error is distributed across all six channels.
+
+At the same timestamp, the maximum E0 robust per-channel deviation is approximately 1.252, below its calibrated threshold of approximately 2.408636.
+
+Thus, this selected observation exceeds the multivariate reconstruction-error threshold without exceeding the univariate maximum-deviation threshold.
+
+### Scientific interpretation
+
+The result is consistent with the hypothesis that multivariate telemetry structure can reveal deviations that independent univariate thresholds do not detect as promptly.
+
+PCA detects deviations from a nominal linear subspace. Channel-level squared reconstruction residuals provide a mathematical explanation of the score, but do not establish physical causality or identify a faulty spacecraft component.
+
+The earlier detection of `id_73` does not establish global superiority of E2. In the 2000 development test, E2 also generates more alert episodes unassociated with ESA annotations than E0 or E1.
+
+### Limitations
+
+- The analysis focuses on one selected event in a development dataset.
+- The first alert window is identified by overlap with the ESA annotation, not by causal attribution.
+- Thresholds are calibrated on 30-minute window maxima; sample-level scores are used for explanation, not as independent operational alert decisions.
+- The selected peak is not representative of every observation in the event.
+- The 2000 test period has been inspected repeatedly and cannot be treated as an untouched final evaluation set.
+- Physical root-cause attribution requires additional engineering context and domain validation.
+
+### Reproducibility
+
+The analysis is implemented in `scripts/analyze_e2_event73.py`.
+
+The script reconstructs the nominal PCA training, reads the original E0 and E2 thresholds from their experiment summaries, identifies the first E2 alert window overlapping `id_73`, calculates channel-level contributions, and checks consistency between contributions and the total SPE.
+
+The channel-level results are saved to `experiments/e2/event73_channel_explanation.csv` under the configured external outputs directory.

@@ -110,3 +110,35 @@ def test_pca_requires_fitting():
     with pytest.raises(RuntimeError, match="fitted"):
         detector.score_samples(make_correlated_data())
 
+
+
+
+def test_channel_contributions_sum_to_spe():
+    X = make_correlated_data()
+    detector = PCAAnomalyDetector(n_components=1).fit(X)
+
+    contributions = detector.channel_contributions(X)
+    scores = detector.score_samples(X)
+
+    assert np.allclose(
+        contributions.sum(axis=1).to_numpy(),
+        scores.to_numpy(),
+    )
+
+    assert contributions.index.equals(X.index)
+    assert contributions.columns.equals(X.columns)
+
+
+def test_channel_contributions_detect_broken_relationship():
+    X = make_correlated_data()
+    detector = PCAAnomalyDetector(n_components=1).fit(X)
+
+    unusual = pd.DataFrame({
+        "channel_41": [3.0],
+        "channel_44": [20.0],
+    })
+
+    contributions = detector.channel_contributions(unusual)
+
+    assert (contributions.to_numpy() >= 0).all()
+    assert contributions.sum(axis=1).iloc[0] > 0
