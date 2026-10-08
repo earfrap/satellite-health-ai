@@ -77,6 +77,37 @@ Both annotated Anomaly events in the test period (`id_200` and `id_73`) were int
 
 These are preliminary development results, not estimates of generalization performance.
 
+### 5.1 Event-Level Detection and Latency
+
+Event-level detection is evaluated using the original ESA event
+intervals. An event is considered detected when at least one alert
+episode has positive temporal overlap with its annotated interval.
+
+Operational detection latency is measured from the annotated event
+start to the end of the first overlapping alerted 30-minute window.
+This represents the earliest availability of a window-level alert,
+not necessarily the physical onset of the underlying deviation.
+
+| ESA Event | Category | Detected | Preexisting Alert | Latency (min) |
+|---|---|---|---|---:|
+| id_200 | Anomaly | Yes | No | 36.53 |
+| id_59 | Rare Event | Yes | No | 48.53 |
+| id_35 | Rare Event | No | No | N/A |
+| id_73 | Anomaly | Yes | No | 211.03 |
+
+Three of the four annotated test events were detected:
+two of two Anomaly events and one of two Rare Events.
+
+No detected event was associated with an alert episode that
+started before its annotated onset.
+
+The undetected Rare Event (id_35) lasts approximately 8.5 minutes.
+Its short duration motivates further investigation of temporal
+aggregation and detection sensitivity.
+
+These results are descriptive only. The small number of events,
+permissive temporal-overlap criterion, and prior inspection of
+the development year prevent reliable generalization claims.
 ## 6. Interpretation
 
 The baseline detects deviations in individual channels but produces a substantial number of short, isolated alert episodes.
@@ -101,7 +132,7 @@ The 74 unassociated episodes should not automatically be interpreted as confirme
 
 ## 8. Next Steps
 
-- Measure event-level detection latency.
+- Validate event-level detection and latency metrics on additional mission years.
 - Evaluate alert burden and event associations under stricter temporal matching rules.
 - Introduce a univariate temporal baseline (E1).
 - Evaluate multivariate methods, including PCA-based reconstruction or residual scoring (E2).
