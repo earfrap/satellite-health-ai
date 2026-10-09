@@ -17,7 +17,7 @@ def extract_alert_episodes(windows: pd.DataFrame) -> pd.DataFrame:
     count = 0
 
     for row in data.itertuples(index=False):
-        if row.alert:
+        if pd.notna(row.alert) and bool(row.alert):
             if active_start is None:
                 active_start = row.window_start
                 active_end = row.window_end
