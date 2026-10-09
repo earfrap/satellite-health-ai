@@ -135,3 +135,24 @@ def test_anomaly_takes_priority_over_rare_event():
 
     assert result.iloc[0]["association"] == "ANOMALY"
 
+def test_unscorable_window_breaks_alert_episode():
+    start = pd.Timestamp("2020-01-01", tz="UTC")
+
+    windows = pd.DataFrame({
+        "window_start": pd.date_range(
+            start, periods=4, freq="30min"
+        ),
+        "alert": pd.array(
+            [True, True, pd.NA, True],
+            dtype="boolean",
+        ),
+    })
+
+    windows["window_end"] = (
+        windows["window_start"] + pd.Timedelta(minutes=30)
+    )
+
+    episodes = extract_alert_episodes(windows)
+
+    assert len(episodes) == 2
+    assert episodes["window_count"].tolist() == [2, 1]

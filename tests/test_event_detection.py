@@ -235,4 +235,31 @@ def test_alert_episode_starts_after_event():
 
 
 
+def test_detection_latency_ignores_unscorable_window():
+    start = pd.Timestamp("2020-01-01", tz="UTC")
 
+    windows = pd.DataFrame({
+        "window_start": pd.date_range(
+            start, periods=3, freq="30min"
+        ),
+        "alert": pd.array(
+            [pd.NA, False, True],
+            dtype="boolean",
+        ),
+    })
+
+    windows["window_end"] = (
+        windows["window_start"] + pd.Timedelta(minutes=30)
+    )
+
+    events = pd.DataFrame({
+        "event_start": [start],
+        "event_end": [start + pd.Timedelta(hours=2)],
+    })
+
+    result = compute_detection_latency(events, windows)
+
+    assert bool(result.iloc[0]["detected"])
+    assert result.iloc[0]["first_alert_time"] == (
+        start + pd.Timedelta(minutes=90)
+    )
