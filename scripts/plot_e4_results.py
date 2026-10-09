@@ -67,7 +67,78 @@ def main():
     print(png)
     print(pdf)
 
+def plot_event_detection(base):
+    data = pd.read_csv(
+        base / "e4_event_detection_with_latency_2001_2013.csv"
+    )
+
+    anomalies = data[data["category"] == "Anomaly"]
+
+    summary = (
+        anomalies.groupby("detector")
+        .agg(
+            events=("event_id", "nunique"),
+            detected=("detected", "sum"),
+            new_episode=("new_episode_during_event", "sum"),
+        )
+        .reindex(["E0", "E1", "E2"])
+    )
+
+    coverage = 100 * summary["detected"] / summary["events"]
+    new = 100 * summary["new_episode"] / summary["events"]
+
+    fig, ax = plt.subplots(figsize=(8, 5))
+
+    x = range(3)
+    width = 0.35
+
+    ax.bar(
+        [i - width / 2 for i in x],
+        coverage,
+        width,
+        label="Overlapping alert",
+        color="#2563eb",
+    )
+
+    ax.bar(
+        [i + width / 2 for i in x],
+        new,
+        width,
+        label="New alert episode",
+        color="#16a34a",
+    )
+
+    ax.set_xticks(list(x), ["E0", "E1", "E2"])
+    ax.set_ylim(0, 110)
+    ax.set_ylabel("ESA anomaly events (%)")
+    ax.set_title("Anomaly coverage vs new alert episodes")
+    ax.legend(frameon=False)
+    ax.grid(axis="y", alpha=0.2)
+    ax.set_axisbelow(True)
+
+    fig.tight_layout()
+
+    figures = base / "figures"
+
+    for extension in ("png", "pdf"):
+        output = figures / f"e4_anomaly_detection.{extension}"
+
+        if output.exists():
+            raise FileExistsError(
+                f"Refusing to overwrite existing figure: {output}"
+            )
+
+        fig.savefig(
+            output,
+            dpi=300,
+            bbox_inches="tight",
+        )
+        print("Saved:", output)
+
+    plt.close(fig)
+
 
 if __name__ == "__main__":
-    main()
-
+    paths = load_data_paths("configs/data/paths.local.yaml")
+    base = paths["outputs"] / "experiments" / "e4"
+    plot_event_detection(base)
