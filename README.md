@@ -108,6 +108,8 @@ Latency statistics are conditional on a new episode occurring and are based on s
 
 *Comparison of alert overlap and newly initiated alert episodes across 46 ESA Anomaly events. High event overlap does not necessarily imply effective event-onset detection.*
 
+For a detailed account of the experimental protocol, quantitative results, interpretation, and limitations, see the [Technical Research Report](docs/research_report.md).
+
 ## Scientific interpretation
 
 The central finding is that high event overlap does not necessarily imply useful anomaly detection.
