@@ -1,5 +1,7 @@
 """Generate publication-ready E4 temporal evaluation figures."""
 
+import argparse
+
 import matplotlib.pyplot as plt
 import pandas as pd
 
@@ -139,6 +141,22 @@ def plot_event_detection(base):
 
 
 if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Generate E4 scientific figures."
+    )
+    parser.add_argument(
+        "--figure",
+        choices=("nominal", "events", "all"),
+        default="all",
+        help="Select which figure to generate (default: all).",
+    )
+    args = parser.parse_args()
+
     paths = load_data_paths("configs/data/paths.local.yaml")
     base = paths["outputs"] / "experiments" / "e4"
-    plot_event_detection(base)
+
+    if args.figure in ("nominal", "all"):
+        main()
+
+    if args.figure in ("events", "all"):
+        plot_event_detection(base)
