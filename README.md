@@ -94,6 +94,20 @@ For ESA Anomaly events with a new alert episode, latency is measured from the an
 
 Latency statistics are conditional on a new episode occurring and are based on small, unequal event subsets. They should not be interpreted as direct, like-for-like rankings of response speed.
 
+## Key results at a glance
+
+### Long-term alert behavior (2001–2013)
+
+![Long-term NOMINAL alert fraction for E0, E1 and E2](docs/figures/e4_nominal_alert_fraction.png)
+
+*Fraction of scorable NOMINAL windows producing alerts. E1 remains comparatively stable, while E0 increases in later years and E2 approaches alert saturation.*
+
+### ESA Anomaly event evaluation
+
+![ESA Anomaly event detection comparison](docs/figures/e4_anomaly_detection.png)
+
+*Comparison of alert overlap and newly initiated alert episodes across 46 ESA Anomaly events. High event overlap does not necessarily imply effective event-onset detection.*
+
 ## Scientific interpretation
 
 The central finding is that high event overlap does not necessarily imply useful anomaly detection.
