@@ -59,3 +59,6 @@ logs/
 *.egg-info/
 dist/
 build/
+
+# --- Generated experiment outputs ---
+outputs/experiments/

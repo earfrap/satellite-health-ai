@@ -122,6 +122,47 @@ Long-term monitoring performance must therefore consider:
 - The limitations of available reference annotations.
 - The trade-off between sensitivity and operational interpretability.
 
+## Installation
+
+Requirements: Python 3.12 or newer.
+
+Clone the repository and install the project in editable mode:
+
+```bash
+git clone <repository-url>
+cd satellite-health-ai
+python -m pip install -e ".[dev]"
+```
+
+Copy the example data-path configuration:
+
+```bash
+cp configs/data/paths.example.yaml configs/data/paths.local.yaml
+```
+
+Edit `configs/data/paths.local.yaml` to point to the local directories containing the ESA telemetry and experiment outputs.
+
+The original ESA dataset is not included in this repository. Access to the appropriate telemetry and annotation files is required to reproduce the experiments.
+
+### Running tests
+
+```bash
+python -m pytest tests/ -q
+```
+
+### Experiment workflow
+
+The principal workflow consists of:
+
+1. Preparing annual Group 8 telemetry with `scripts/prepare_group8_year.py`.
+2. Building ESA-labeled 30-minute windows with `scripts/build_year_window_table.py`.
+3. Exporting frozen E0/E1 and E2 model artifacts with `scripts/export_e0_e1_models.py` and `scripts/export_e2_model.py`.
+4. Running long-term comparisons with `scripts/run_e4_multiyear.py`.
+5. Summarizing detector behavior and ESA event-level results with the E4 summary scripts.
+6. Generating figures with `scripts/plot_e4_results.py`.
+
+Model training and threshold calibration must be performed using the designated 2000 training and validation periods, without recalibration on the 2001–2013 evaluation years.
+
 ## Reproducibility
 
 The repository contains scripts for:
