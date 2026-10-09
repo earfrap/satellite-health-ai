@@ -1,360 +1,203 @@
 # Satellite Health AI
-## Explainable Multivariate Anomaly Detection for Spacecraft Health Monitoring
 
-**Technical Research Report — E4 Long-Term Temporal Evaluation**
+## Explainable Anomaly Detection for Long-Term Spacecraft Health Monitoring
+
+**Technical Research Report — M0–M4 Comparative Study | EVAL: 2001–2013**
 
 ### Abstract
 
-This study investigates the long-term behavior of three interpretable anomaly detection methods applied to multivariate spacecraft telemetry from ESA Mission 1, Group 8.
+This study compares five anomaly-detection approaches on six telemetry channels from ESA Mission 1, Group 8: a robust statistical threshold (M0), a causal temporal residual detector (M1), principal component analysis (M2), Isolation Forest (M3), and a feed-forward autoencoder (M4). Models and alert thresholds were established using data from 2000 and evaluated without retraining or recalibration over 2001–2013. The evaluation distinguishes the fraction of scorable ESA-NOMINAL windows flagged, overlap with 108 annotated ESA events, and the initiation of new alert episodes during events. Continuous episode reconstruction on the common 227,904-window evaluation timeline confirmed that year-boundary handling did not alter event-level classifications for any of the five detectors.
 
-Models and decision thresholds were established using data from 2000 and subsequently evaluated without retraining or recalibration over 2001–2013.
-
-The methods comprise a robust statistical threshold detector (E0), a causal temporal residual detector (E1), and a Principal Component Analysis detector (E2).
-
-The evaluation considers alert behavior in nominally labeled windows, overlap with ESA-annotated events, initiation of new alert episodes, and detection latency.
-
-Results reveal substantial differences in temporal stability. E1 maintains a comparatively stable nominal alert fraction, whereas E0 exhibits a pronounced increase in later years and E2 approaches persistent alert saturation.
-
-The study demonstrates why high overlap with annotated events is insufficient, on its own, to establish operationally useful anomaly detection.
-
----
+M1 produces alerts in 1.48% of scorable NOMINAL windows and new alert episodes during 36/108 annotated events, while M2 overlaps 106/108 events but flags 83.45% of scorable NOMINAL windows. M4 has lower nominal alert activity than M0, M2, and M3, but also lower event coverage. These results illustrate why event overlap, taken alone, can misrepresent operational usefulness, and why model complexity does not guarantee a favorable monitoring trade-off. NOMINAL alert fraction is not assumed to equal false-positive rate, and temporal coincidence is not treated as proof of event causation.
 
 ## 1. Research objective
 
-Spacecraft health monitoring requires detecting unusual telemetry behavior while maintaining interpretable and manageable alert activity.
+Spacecraft health monitoring must identify unusual telemetry behavior without generating persistent, difficult-to-interpret alert states. Detectors calibrated on a historical operating period may behave differently years later even if their parameters remain fixed.
 
-Anomaly detectors calibrated on historical data may behave differently when applied to later operating periods. This creates an important evaluation challenge: a detector may continue to produce high anomaly scores without reliably distinguishing newly occurring events.
+**Research question:** How do statistical, temporal, classical machine-learning, and neural reconstruction-based detectors compare under a common frozen-model, long-term telemetry evaluation protocol?
 
-The central research question is:
-
-**How do interpretable multivariate anomaly detectors generalize over long periods when their models and thresholds remain fixed?**
-
-Three related questions are examined:
-
-1. How stable is each detector's alert behavior across subsequent years?
-2. Does overlap between alerts and reference events represent newly triggered detection?
-3. What are the limitations of evaluating spacecraft anomaly detection using event annotations and nominally labeled telemetry?
-
-The study emphasizes methodological transparency and critical evaluation rather than optimization of a single detection metric.
+The study examines temporal stability, event overlap versus newly initiated alerts, and the trade-off between event coverage and nominally labeled alert activity. The objective is comparative understanding, not maximization of a single score.
 
 ## 2. Dataset and scope
 
-The experiments use ESA Mission 1 telemetry and associated event annotations.
+The dataset is the selected **ESA Mission 1, Group 8** telemetry subset: `channel_41` through `channel_46`. Observations are aggregated into 30-minute evaluation windows. Model development uses data from 2000; the held-out chronological evaluation covers **2001–2013**, comprising **227,904 windows**.
 
-The selected subset is Group 8, comprising six telemetry channels:
+The event analysis includes **108 unique ESA event IDs** intersecting the evaluation period and associated with the selected channels. Multiple annotated channels for the same ID are not counted as separate events.
 
-- `channel_41`
-- `channel_42`
-- `channel_43`
-- `channel_44`
-- `channel_45`
-- `channel_46`
-
-Telemetry is analyzed using 30-minute windows.
-
-The experimental timeline is divided into an initial model-development period in 2000 and a long-term evaluation period covering 2001–2013.
-
-The reference annotations distinguish NOMINAL windows and events categorized as Anomaly, Rare Event, or Communication Gap.
-
-Across the 2001–2013 evaluation period, the event-level analysis includes 108 unique ESA event identifiers:
-
-| ESA event category | Events |
+| ESA annotation category | Unique events |
 |---|---:|
 | Anomaly | 46 |
 | Rare Event | 58 |
 | Communication Gap | 4 |
 | **Total** | **108** |
 
-Event identifiers are evaluated as unique events rather than counted repeatedly for each affected telemetry channel.
-
-The analysis is restricted to this particular mission and channel group. Results should not be assumed to generalize automatically to other spacecraft, telemetry subsystems, or operational contexts.
+The labels provide an imperfect reference, not exhaustive proof of nominal or anomalous physical conditions. Findings are limited to this mission subset and should not be generalized to other channels or spacecraft without further testing.
 
 ## 3. Methods
 
-Three detectors are compared using a consistent evaluation framework.
+All five models produce sample-level anomaly scores that are aggregated to the **maximum score in each 30-minute window**, then compared with a detector-specific frozen threshold.
 
-### 3.1 E0 — Robust statistical threshold detector
+### 3.1 M0 — Robust statistical threshold
 
-E0 models nominal channel behavior using robust location and scale statistics based on the median and median absolute deviation (MAD).
+M0 estimates per-channel reference location and scale from nominal training observations using the median and median absolute deviation (MAD). Its score reflects robust deviations from these channel references. This simple baseline is interpretable but potentially sensitive to long-term shifts in operating level or variability.
 
-Deviations from the nominal reference are evaluated across the selected channels.
+### 3.2 M1 — Causal temporal residual
 
-A 30-minute window receives the maximum robust deviation score observed within that window.
+M1 compares observations with a rolling 30-minute median computed strictly from preceding observations. A minimum of ten prior observations is required. Robustly scaled residuals are aggregated into window-level scores. The causal construction avoids future-observation leakage, while its local reference can respond differently to gradual shifts and transient deviations.
 
-This approach provides an interpretable statistical baseline but may be sensitive to long-term changes in channel operating levels or variability.
+### 3.3 M2 — Principal component analysis
 
-### 3.2 E1 — Causal temporal residual detector
+M2 fits PCA to nominal multivariate telemetry, retaining **two principal components**. Squared prediction error (SPE) measures the residual variation outside the learned subspace. Reconstruction-error growth is a statistical observation and does not by itself identify a physical fault.
 
-E1 measures deviations from a rolling temporal baseline.
+### 3.4 M3 — Isolation Forest
 
-The baseline uses a 30-minute rolling median and excludes the current observation through a strictly causal window definition.
+M3 is a tree-based unsupervised anomaly detector trained on nominal telemetry. Its score summarizes how unusual an observation appears under the fitted isolation structure. It provides a nonlinear comparison with the robust and PCA baselines, but its scores and threshold are specific to the fitted model and calibration procedure.
 
-A minimum of 10 preceding observations is required for a valid rolling estimate.
+### 3.5 M4 — Feed-forward autoencoder
 
-Residual deviations are evaluated using robust scaling, and the window-level score is the maximum residual anomaly score within each 30-minute window.
-
-The causal design avoids incorporating future observations into the local baseline.
-
-Because sufficient preceding observations are required, some windows cannot receive a valid E1 score.
-
-### 3.3 E2 — Principal Component Analysis detector
-
-E2 applies Principal Component Analysis to the multivariate telemetry.
-
-The fitted model retains two principal components.
-
-Anomaly scores are based on squared prediction error (SPE), measuring residual variation outside the retained PCA subspace.
-
-The maximum SPE score within a 30-minute window is used for alert evaluation.
-
-PCA provides a compact representation of multivariate structure, but a fixed model can become poorly aligned with telemetry behavior observed in later periods.
-
-An increase in reconstruction error alone does not establish the physical cause of the change.
+M4 uses robust channel scaling and a fully connected reconstruction network with architecture **6 → 4 → 2 → 4 → 6**, ReLU hidden activations, and a linear output. It is trained on nominal observations with mean-squared reconstruction loss using Adam for **20 epochs** (batch size **1,024**, learning rate **0.001**, seed **42**). The anomaly score is the sum of squared channel reconstruction residuals. The fitted network is a nonlinear reconstruction baseline, not a physical simulator of spacecraft subsystems.
 
 ## 4. Experimental protocol
 
-### 4.1 Training and calibration
+### 4.1 Chronological training and validation
 
-The detectors were fitted using nominal training observations from the initial period of 2000, before June 1.
+The nominal training period is January–May 2000, with **445,722 samples** corresponding to **7,079 nominal 30-minute windows**. A separate nominal validation period in June–August 2000 contains **4,385 windows**. Each model's decision threshold is the **99th percentile of validation window scores**, using the maximum sample score within each window.
 
-The nominal training dataset comprises 7,079 windows and 445,722 telemetry samples.
-
-Thresholds were calibrated on a separate validation period spanning June–August 2000, using the 99th percentile of the respective validation score distributions.
-
-The resulting frozen thresholds were:
-
-| Detector | Threshold |
+| Model | Frozen threshold |
 |---|---:|
-| E0 | 2.408636332 |
-| E1 | 2.173326984 |
-| E2 | 2.331041565 |
+| M0 | 2.408636332 |
+| M1 | 2.173326984 |
+| M2 | 2.331041565 |
+| M3 | 0.603551727 |
+| M4 | 16.572053909 |
 
-The fitted detectors and their thresholds were preserved as model artifacts.
+Threshold magnitudes are **not directly comparable** across models because the scoring functions differ. The numerical M3 threshold is deliberately not reproduced here without checking its saved artifact.
 
-### 4.2 Long-term evaluation
+### 4.2 Frozen-model evaluation
 
-The frozen models were evaluated over 2001–2013.
+Models and thresholds remain fixed throughout 2001–2013: no retraining or recalibration on evaluation years. Every detector is evaluated against the same 30-minute window timeline and the same selected ESA event IDs. Some historical artifact filenames and CSV columns retain legacy identifiers (`e0`–`e3` for earlier detectors and `e4` for the former evaluation stage). The current scientific nomenclature is **M0–M4** for the five models and **EVAL** for the evaluation protocol. Legacy identifiers are preserved where changing them would break compatibility with frozen results.
 
-No retraining or threshold recalibration was performed on these evaluation years.
+### 4.3 Missing scores
 
-For each annual dataset, detector scores were aggregated into 30-minute windows and compared against the corresponding frozen thresholds.
+Unscorable windows are represented as missing, not as non-alerts. The earlier M0–M2 evaluation documented **11**, **35**, and **11** unscorable windows respectively across the evaluation period. All nominal alert percentages in the final comparison use only scorable NOMINAL windows for each detector; denominators can therefore differ slightly.
 
-The annual comparison tables include window timestamps, reference labels, scores, and alert decisions for E0, E1, and E2.
+## 5. Evaluation criteria
 
-### 4.3 Unscorable windows
+**NOMINAL alert fraction:** The number of scorable windows labeled NOMINAL that produce an alert, divided by all scorable NOMINAL windows for that model. The overall percentage is weighted by the number of eligible windows across years, not the unweighted mean of annual percentages. This is a descriptive alert-burden proxy, **not** an established false-positive rate.
 
-Some telemetry windows cannot be scored because they contain no usable samples or insufficient preceding observations.
+**Event overlap:** At least one alert episode intersects an ESA event interval. An episode may have begun before the event; therefore overlap is permissive and can be inflated by persistent alert states.
 
-Across the 13-year evaluation:
+**New episode during event:** At least one alert episode begins within the annotated event interval. This is a stricter timing criterion, but it does not prove causal association or guarantee that the alert would be operationally actionable.
 
-| Detector | Unscorable windows |
-|---|---:|
-| E0 | 11 |
-| E1 | 35 |
-| E2 | 11 |
+**Episode definition:** A consecutive run of alerted evaluation windows. Missing scores are not automatically treated as negative alerts. Episode counts depend on the windowing and continuity conventions and should not be interpreted as independent faults.
 
-Missing scores are distinguished from negative alert decisions in the evaluation logic.
-
-The nominal alert fraction is calculated using scorable NOMINAL windows as its denominator.
-
-This distinction prevents missing observations from being treated automatically as evidence of nominal detector behavior.
-
-## 5. Evaluation framework
-
-### 5.1 Long-term nominal alert fraction
-
-For each detector and year, the analysis calculates the fraction of scorable NOMINAL windows whose scores exceed the frozen threshold.
-
-This quantity measures alert activity in windows labeled NOMINAL by the available annotation procedure.
-
-It is not treated as a definitive false-positive rate because the annotations do not prove that every NOMINAL window is free of anomalous behavior.
-
-### 5.2 Event overlap
-
-An ESA event satisfies the alert-overlap criterion when at least one alert overlaps its annotated time interval.
-
-This is a permissive criterion.
-
-In particular, an alert episode that started before the event may remain active during the event and therefore count as overlap.
-
-### 5.3 New alert episodes
-
-A second criterion requires an alert episode to begin during the annotated event interval.
-
-This separates persistent alert activity from newly initiated detector responses.
-
-However, temporal coincidence does not establish that the annotated event caused the alert.
-
-### 5.4 Detection latency
-
-For events with newly initiated alert episodes, latency is calculated from the ESA event start to the end of the first qualifying 30-minute alert window.
-
-Latency is therefore based on window closure rather than an assumed instantaneous detection time.
-
-The reported latency statistics are conditional on an event having a new alert episode.
+**Latency:** For an event with a new episode, latency is measured from the ESA event start to the end of the first qualifying 30-minute alert window. Available legacy latency results are reported for M0–M2 only; their qualifying event subsets differ.
 
 ## 6. Results
 
-### 6.1 Long-term alert behavior
+### 6.1 Temporal behavior
 
-![Long-term nominal alert fraction](figures/e4_nominal_alert_fraction.png)
+![Annual NOMINAL alert fraction for M0–M4](figures/fig01_temporal_stability.png)
 
-*Figure 1. Annual fraction of scorable NOMINAL windows producing alerts, 2001–2013.*
+*Figure 1. Annual percentage of scorable ESA-NOMINAL windows flagged by each frozen detector, 2001–2013.*
 
-The three detectors show substantially different temporal behavior.
+M1 maintains approximately 1–2% annual NOMINAL alert activity, whereas M2 and M3 become strongly saturated during later years. M0 also exhibits a substantial later-period increase. M4 is less saturated than M0, M2, or M3 overall but shows elevated activity in 2009–2012. These are changes in detector behavior; their physical causes have not been established.
 
-E0 exhibits a marked increase in nominal alert activity during later evaluation years, reaching approximately 85% in 2011 before declining.
+### 6.2 Aggregate comparison
 
-E1 remains comparatively stable, with annual nominal alert fractions generally between approximately 1% and 2%.
+| Model | Scorable NOMINAL windows with alert | Events with overlap | Events with new episode | Continuous alert episodes |
+|---|---:|---:|---:|---:|
+| M0 — Robust threshold | 37.34% | 95/108 (87.96%) | 34/108 (31.48%) | 30,059 |
+| M1 — Temporal residual | **1.48%** | 80/108 (74.07%) | **36/108 (33.33%)** | **3,555** |
+| M2 — PCA | 83.45% | **106/108 (98.15%)** | 28/108 (25.93%) | 14,251 |
+| M3 — Isolation Forest | 51.06% | 101/108 (93.52%) | 33/108 (30.56%) | 20,408 |
+| M4 — Autoencoder | 5.24% | 63/108 (58.33%) | 22/108 (20.37%) | 10,808 |
 
-E2 shows a strong increase over time, approaching or reaching 100% nominal alert activity in several later years.
+These metrics capture different aspects of detector behavior. A high event-overlap percentage should not be interpreted as event-detection recall under exhaustive ground truth, and the NOMINAL alert percentage should not be interpreted as false-positive rate.
 
-These observations are consistent with differing sensitivity to long-term telemetry changes, but they do not identify the underlying physical mechanisms.
+### 6.3 ESA event categories
 
-### 6.2 Event-level detection
+![Event overlap and new episode fractions by category](figures/fig02_event_detection.png)
 
-Across all 108 annotated ESA events:
+*Figure 2. Event overlap and new-episode fractions for all ESA events and separately for Anomaly, Rare Event, and Communication Gap annotations. The Communication Gap subset contains only four events.*
 
-| Detector | Events with alert overlap | Events with new alert episode |
+For the **46 ESA Anomaly events**, the following counts are available from the verified per-event evaluations:
+
+| Model | Overlap | New episode during event |
 |---|---:|---:|
-| E0 | 95 | 34 |
-| E1 | 80 | 36 |
-| E2 | 106 | 28 |
+| M0 | 45/46 | 6/46 |
+| M1 | 42/46 | 13/46 |
+| M2 | 46/46 | 2/46 |
+| M3 | 46/46 | 3/46 |
+| M4 | 41/46 | 4/46 |
 
-For the 46 events classified specifically as ESA Anomaly:
+M2 and M3 overlap every annotated Anomaly event, yet comparatively few such events contain the onset of a new alert episode. M1 has fewer overlapping Anomaly events but more newly initiated episodes within them. This distinction matters when a detector is already in an alert state before an event begins.
 
-| Detector | Alert overlap | New alert episode |
-|---|---:|---:|
-| E0 | 45/46 (97.8%) | 6/46 (13.0%) |
-| E1 | 42/46 (91.3%) | 13/46 (28.3%) |
-| E2 | 46/46 (100.0%) | 2/46 (4.3%) |
+### 6.4 Operational trade-off
 
-![ESA Anomaly event comparison](figures/e4_anomaly_detection.png)
+![Event coverage versus NOMINAL alert burden](figures/fig03_operational_tradeoff.png)
 
-*Figure 2. Comparison of alert overlap and new alert episode criteria across 46 ESA Anomaly events.*
+*Figure 3. Event-overlap and new-episode coverage plotted against the overall fraction of scorable NOMINAL windows flagged. The horizontal axis measures alert burden, not a validated false-positive rate.*
 
-E2 overlaps all 46 ESA Anomaly events, but only two coincide with the beginning of a new alert episode.
+Under these metrics, M1 offers a particularly favorable balance of low NOMINAL alert activity and new-episode coverage. M2's very high overlap coincides with widespread NOMINAL alerting; M4 reduces alert burden relative to several fixed-reference methods but also has lower event coverage. No universal operational ranking is implied: different missions may prioritize different costs, event types, and alert timing.
 
-This result must be interpreted alongside its high nominal alert fraction in later years.
+### 6.5 Latency for M0–M2
 
-E1 has fewer overlapping events than E2 but more ESA Anomaly events associated with new alert episodes.
+Legacy results for ESA **Anomaly** events with new alert episodes are:
 
-E0 lies between these patterns in some respects, although the comparisons depend on the metric considered.
-
-No single detector dominates across all evaluation criteria.
-
-### 6.3 Latency of newly initiated episodes
-
-For ESA Anomaly events with new alert episodes:
-
-| Detector | Qualifying events | Median latency | Mean latency |
+| Model | Qualifying events | Median latency | Mean latency |
 |---|---:|---:|---:|
-| E0 | 6 | 109.1 min | 322.3 min |
-| E1 | 13 | 498.6 min | 1095.5 min |
-| E2 | 2 | 718.3 min | 718.3 min |
+| M0 | 6 | 109.1 min | 322.3 min |
+| M1 | 13 | 498.6 min | 1,095.5 min |
+| M2 | 2 | 718.3 min | 718.3 min |
 
-The number and identity of qualifying events differ across detectors.
+These values describe **different subsets of events** and are not a controlled same-event speed comparison. Equivalent summary statistics for M3 and M4 are not claimed here.
 
-Consequently, these statistics should not be interpreted as a controlled comparison of response speed on an identical event set.
+### 6.6 Cross-year consistency check
 
-In particular, E2's latency estimate is based on only two qualifying events.
+Alert episodes were reconstructed on the **full concatenated 2001–2013 timeline** for all five models, then event-level overlap and new-episode classifications were compared with the earlier year-by-year evaluation. Across the **108 common ESA event IDs**, **zero event classifications changed** for either metric in any model. This verifies the reported event-level counts against the tested year-boundary artifact; it does not validate the completeness of ESA labels or the physical interpretation of alerts.
 
 ## 7. Discussion
 
-### 7.1 Event overlap and operational usefulness
+### 7.1 High overlap can conceal persistent alert states
 
-The most consequential finding is the distinction between event overlap and newly initiated alert episodes.
+An alert that starts before an event and continues through it satisfies the overlap criterion without representing a newly triggered response. The contrast between M2's 106/108 overlaps and 28/108 new-episode events illustrates why overlap alone is an insufficient operational metric, especially when nominally labeled windows are frequently flagged.
 
-A detector operating in a persistent alert state can overlap many reference events while providing little information about their onset.
+### 7.2 Temporal adaptation and fixed-reference sensitivity
 
-This is particularly relevant to E2, whose high event-overlap count accompanies pronounced alert saturation during the long-term evaluation.
+M1's local causal baseline is associated with substantially more stable NOMINAL alert activity than several fixed-reference approaches in this dataset. However, local adaptation may also reduce sensitivity to sustained shifts. The results do not identify which physical operating changes explain the long-term differences.
 
-Thus, event-overlap performance alone can give an incomplete picture of practical detector behavior.
+### 7.3 Model complexity is not an operational guarantee
 
-### 7.2 Temporal stability and detector design
+The neural autoencoder provides a nonlinear reconstruction alternative, but its event coverage is lower than that of the simpler M1 detector under the current evaluation. This comparison is conditional on the chosen architecture, calibration, training slice, and event definitions; it is not evidence that neural methods are generally inferior.
 
-E1's comparatively stable nominal alert fraction suggests that its local temporal baseline is less sensitive to some forms of long-term change than the fixed-reference approaches in this experiment.
+### 7.4 Explainability and scientific interpretation
 
-However, this stability should not be interpreted automatically as better detection of all scientifically or operationally relevant anomalies.
-
-A locally adaptive detector may respond differently to persistent shifts and transient deviations.
-
-E0 and E2 provide complementary perspectives based on robust reference deviations and multivariate reconstruction error.
-
-The observed differences demonstrate the importance of matching detector behavior to the intended monitoring objective.
-
-### 7.3 Interpretability
-
-The compared methods are sufficiently transparent to support diagnostic reasoning about their alert behavior.
-
-E0 relates alerts to robust deviations from channel references.
-
-E1 relates alerts to deviations from recent temporal behavior.
-
-E2 relates alerts to residual structure outside a learned PCA subspace.
-
-This interpretability supports investigation of model behavior but does not independently establish the physical meaning of an alert.
-
-### 7.4 Scientific and operational trade-offs
-
-The results illustrate several competing objectives:
-
-- Detecting reference-event intervals.
-- Producing newly initiated alerts rather than persistent alert states.
-- Maintaining manageable alert activity over time.
-- Preserving score availability and accounting for missing observations.
-- Supporting interpretation of detector behavior.
-
-These objectives cannot be reduced to a single event-overlap percentage.
+M0 links scores to robust channel deviations; M1 to departures from recent channel behavior; M2 to variation outside a learned multivariate subspace. M3 and M4 offer additional nonlinear perspectives but require careful score-level or feature-level interpretation. None of these statistical descriptions establishes spacecraft-level root cause.
 
 ## 8. Limitations
 
-Several limitations constrain the conclusions.
-
-**Dataset scope.** The experiments cover only one ESA mission subset and six telemetry channels.
-
-**Annotation uncertainty.** ESA labels provide a useful reference but do not constitute exhaustive ground truth for every anomalous or nominal condition.
-
-**Event attribution.** An alert episode starting during an ESA event does not prove that the event caused the detector response.
-
-**Temporal dependence.** Consecutive alert windows and event episodes are not independent observations.
-
-**Fixed thresholds.** The evaluation deliberately uses frozen thresholds. It does not establish whether retraining or recalibration would improve operational performance.
-
-**Physical interpretation.** Alert increases and PCA reconstruction changes are observed statistical phenomena; the analysis does not establish their spacecraft-level causes.
-
-**Latency comparison.** Latency is available only for the subset of events associated with new episodes, and those subsets differ across detectors.
-
-**External validity.** Results cannot be generalized automatically to other missions, telemetry systems, or operational requirements.
+- **Restricted scope:** One ESA mission, one telemetry group, six channels, and one chronological training period.
+- **Annotation uncertainty:** NOMINAL does not prove absence of anomalies; ESA event labels are not necessarily exhaustive.
+- **Temporal coincidence versus causality:** An alert beginning during an event is not proof that the event caused it.
+- **Episode dependence:** Adjacent alert windows and overlapping event intervals are temporally dependent.
+- **Calibration and distribution shift:** All thresholds remain frozen by design; adaptive recalibration was not assessed.
+- **Unequal score availability:** Missing observations can affect detector-specific denominators.
+- **Latency selection:** Reported M0–M2 latency summaries are conditional on different qualifying events, and M3–M4 are not yet included in a matched latency analysis.
+- **Limited model search:** The M4 architecture is one specified configuration, not a comprehensive neural architecture or hyperparameter search.
+- **External validity:** Operational cost, telemetry semantics, and mission conditions may differ substantially elsewhere.
 
 ## 9. Conclusions
 
-This study evaluates three interpretable anomaly detection approaches under a frozen-model, long-term spacecraft telemetry monitoring scenario.
+A common frozen-model evaluation over 2001–2013 reveals substantial differences in the long-term behavior of five spacecraft telemetry anomaly detectors. M1 shows the lowest NOMINAL alert fraction (1.48%) and the highest number of ESA events containing newly initiated alert episodes (36/108). M2 achieves the highest event overlap (106/108) while flagging 83.45% of scorable NOMINAL windows. The autoencoder does not outperform simpler alternatives on the evaluated operational proxies.
 
-The main findings are:
-
-1. Detector alert behavior can change substantially across years even when the model and threshold remain unchanged.
-2. The causal temporal residual approach maintains a comparatively stable nominal alert fraction in this dataset.
-3. PCA-based event overlap can appear strong while the detector spends much of its time in an alert state.
-4. Separating alert overlap from new alert episode initiation provides a more informative description of event-level behavior.
-5. Meaningful anomaly detection evaluation requires attention to temporal stability, score coverage, reference-label limitations, and operational interpretation.
-
-The work demonstrates the importance of rigorous experimental design and critical evaluation when translating interpretable machine learning methods into long-term monitoring applications.
+The central methodological finding is that **event overlap, alert initiation, temporal stability, and score availability must be considered together**. None of these metrics alone establishes reliable physical anomaly detection or operational superiority. The work provides a documented comparative foundation for further mission-specific evaluation, with full reproducibility dependent on access to the ESA dataset and compatible software environments.
 
 ## 10. Future work
 
-Potential extensions include:
-
-- Evaluation on additional spacecraft telemetry groups or missions.
-- Explicit analysis of operating regimes and distribution shift.
-- Controlled comparison with adaptive model recalibration.
-- Event-matched latency and alert-burden analysis.
-- Investigation of channel-level contributions to persistent alerts.
-- Evaluation of additional anomaly detection methods under the same frozen-model protocol.
-
-These extensions are proposed research directions, not completed experiments.
+Promising extensions include evaluation of additional ESA channel groups or missions; characterization of operating regimes and distribution shift; controlled adaptive recalibration; event-matched latency and alert-burden analysis for all five models; feature-level explanations; and uncertainty analysis for event annotations. These are proposed extensions, **not completed experiments**.
 
 ---
 
-**Project:** Satellite Health AI
-**Focus:** Applied AI, interpretable anomaly detection, temporal generalization, and scientific R&D methodology.
+**Project:** Satellite Health AI  
+**Focus:** Applied AI, explainable anomaly detection, long-term generalization, reproducible evaluation, and scientific R&D methodology.
