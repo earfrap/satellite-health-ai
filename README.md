@@ -6,6 +6,12 @@ An applied research project investigating whether anomaly detection models train
 
 The study combines statistical baselines, classical machine learning and neural-network reconstruction methods, with a focus on temporal generalization, alert persistence, annotated-event coverage and operational trade-offs.
 
+## Project video
+
+[![Watch Satellite Health AI — Research Overview](docs/video/video_cover.png)](docs/video/satellite_health_ai.mp4)
+
+*Watch the 42-second research overview — ESA spacecraft telemetry, five anomaly detection models, and 13 years of frozen-model evaluation.*
+
 **Key finding:** High annotated-event overlap does not necessarily indicate effective anomaly detection. Models that remain in an alert state for long periods may overlap nearly every event without providing a useful indication of its onset.
 
 ## Research objectives
